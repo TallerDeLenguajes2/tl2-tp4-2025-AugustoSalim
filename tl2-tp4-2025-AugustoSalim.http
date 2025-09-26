@@ -1,0 +1,6 @@
+@tl2_tp4_2025_AugustoSalim_HostAddress = http://localhost:5188
+
+GET {{tl2_tp4_2025_AugustoSalim_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
