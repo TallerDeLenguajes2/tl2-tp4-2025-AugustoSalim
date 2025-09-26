@@ -6,11 +6,11 @@ namespace MiCadeteria.Models
     public class Pedido
     {
         // Propiedades públicas con set para poder recibir JSON en POST/PUT
-        public int Numero { get; set; }  // Identificador único del pedido
-        public string Observaciones { get; set; }  // Observaciones adicionales sobre el pedido
-        public Cliente Cliente { get; set; }  // Cliente que solicita el pedido
-        public Cadete CadeteAsignado { get; set; } // Cadete que entregará el pedido (puede ser null)
-        public EstadoPedido Estado { get; set; } // Estado del pedido usando enum
+        public int Numero { get; set; }                   // Identificador único del pedido
+        public string Observaciones { get; set; }         // Observaciones adicionales sobre el pedido
+        public Cliente Cliente { get; set; }              // Cliente que solicita el pedido
+        public Cadete CadeteAsignado { get; set; }        // Cadete que entregará el pedido (puede ser null)
+        public EstadoPedido Estado { get; set; }          // Estado del pedido usando enum directamente
 
         // Constructor vacío para Web API
         public Pedido() 
@@ -25,12 +25,14 @@ namespace MiCadeteria.Models
             Observaciones = observaciones;
             Cliente = cliente;
             Estado = EstadoPedido.Pendiente; // Por defecto pendiente
-            CadeteAsignado = null; // Sin cadete asignado al inicio
+            CadeteAsignado = null;           // Sin cadete asignado al inicio
         }
 
-        // Método para cambiar el estado del pedido
+        // Método para cambiar el estado del pedido recibiendo directamente el enum
         public void CambiarEstado(EstadoPedido nuevoEstado)
         {
+            // ✅ Se asigna directamente el enum, sin ToString()
+            // ASP.NET Core serializará automáticamente el enum a JSON como string
             Estado = nuevoEstado;
         }
 
@@ -46,7 +48,7 @@ namespace MiCadeteria.Models
             CadeteAsignado = null;
         }
 
-        // Método opcional para mostrar información del pedido
+        // Método opcional para mostrar información del pedido en consola o logs
         public override string ToString()
         {
             string cadete = CadeteAsignado != null ? CadeteAsignado.Nombre : "Sin asignar";
