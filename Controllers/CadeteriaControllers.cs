@@ -56,13 +56,13 @@ namespace MiCadeteria.Models
             if (pedido == null || pedido.Cliente == null)
                 return BadRequest("El pedido o el cliente no pueden ser nulos.");
 
-            // Validamos que no exista un pedido con el mismo número en DataStore
-            if (DataStore.Pedidos.Any(p => p.Numero == pedido.Numero))
-                return BadRequest($"Ya existe un pedido con el número {pedido.Numero}.");
+            // // Validamos que no exista un pedido con el mismo número en DataStore
+            // if (DataStore.Pedidos.Any(p => p.Numero == pedido.Numero))
+            //     return BadRequest($"Ya existe un pedido con el número {pedido.Numero}.");
 
             // Agregamos el pedido a la lista de pedidos en memoria
             // DataStore.Pedidos es una lista estática, así que cualquier cambio se refleja en todos los endpoints
-            DataStore.Pedidos.Add(pedido);
+            var nuevoPedido = DataStore.AgregarPedido(pedido);
 
             // Retornamos 201 Created indicando que el recurso se creó correctamente
             // Explicación de cada parámetro de CreatedAtAction:
@@ -70,7 +70,7 @@ namespace MiCadeteria.Models
             // 2. new { id = pedido.Numero } -> parámetros de la ruta para ubicar el recurso recién creado (en caso de GET con id)
             // 3. pedido -> el objeto que se devuelve en la respuesta JSON
             return CreatedAtAction(
-                nameof(GetPedidos), new { id = pedido.Numero }, pedido);
+                nameof(GetPedidos), new { id = nuevoPedido.Numero }, nuevoPedido);
         }
 
         [HttpPut("asignar")]

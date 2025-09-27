@@ -12,6 +12,9 @@ namespace MiCadeteria.Models
         // Lista de pedidos
         public static List<Pedido> Pedidos { get; set; } = new List<Pedido>();
 
+        //id autoincremental de los pedidos para no tener problemas al usar el post y no saber el numero de pedido
+        private static int _nextPedidoId = 1; // contador interno de pedidos
+
         // Objeto Cadeteria general
         public static Cadeteria CadeteriaInfo { get; set; } = new Cadeteria
         {
@@ -26,26 +29,31 @@ namespace MiCadeteria.Models
             Cadetes.Add(new Cadete { Id = 1, Nombre = "Juan Pérez", Direccion = "Calle Falsa 123", Telefono = "111111111" });
             Cadetes.Add(new Cadete { Id = 2, Nombre = "María Gómez", Direccion = "Av. Siempre Viva 456", Telefono = "222222222" });
 
-            // Inicializar algunos pedidos de ejemplo
-            Pedidos.Add(new Pedido
+            // Inicializar algunos pedidos de ejemplo usando el método
+            AgregarPedido(new Pedido
             {
-                Numero = 1,
                 Observaciones = "Dejar en portería",
                 Cliente = new Cliente { Nombre = "Cliente 1", Direccion = "Calle A 123", Telefono = "333333333" },
                 Estado = EstadoPedido.Pendiente
             });
 
-            Pedidos.Add(new Pedido
+            AgregarPedido(new Pedido
             {
-                Numero = 2,
                 Observaciones = "Llamar al llegar",
                 Cliente = new Cliente { Nombre = "Cliente 2", Direccion = "Calle B 456", Telefono = "444444444" },
                 Estado = EstadoPedido.Pendiente
             });
 
-            // Agregar cadetes y pedidos a la cadetería
             CadeteriaInfo.Cadetes = Cadetes;
             CadeteriaInfo.Pedidos = Pedidos;
+        }
+        
+        // Nuevo método para manejar IDs automáticos
+        public static Pedido AgregarPedido(Pedido pedido)
+        {
+            pedido.Numero = _nextPedidoId++; // asigna y luego incrementa el contador
+            Pedidos.Add(pedido);
+            return pedido;
         }
     }
 }
