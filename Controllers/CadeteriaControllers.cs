@@ -60,6 +60,18 @@ namespace MiCadeteria.Models
             // if (DataStore.Pedidos.Any(p => p.Numero == pedido.Numero))
             //     return BadRequest($"Ya existe un pedido con el número {pedido.Numero}.");
 
+                // Validar que no exista un pedido exactamente igual
+            bool existeDuplicado = DataStore.Pedidos.Any(p =>
+                p.Observaciones == pedido.Observaciones &&
+                p.Cliente.Nombre == pedido.Cliente.Nombre &&
+                p.Cliente.Direccion == pedido.Cliente.Direccion &&
+                p.Cliente.Telefono == pedido.Cliente.Telefono &&
+                p.Cliente.DatosReferenciaDireccion == pedido.Cliente.DatosReferenciaDireccion
+            );
+
+            if (existeDuplicado)
+                return BadRequest("Ya existe un pedido idéntico.");
+
             // Agregamos el pedido a la lista de pedidos en memoria
             // DataStore.Pedidos es una lista estática, así que cualquier cambio se refleja en todos los endpoints
             var nuevoPedido = DataStore.AgregarPedido(pedido);
@@ -74,26 +86,27 @@ namespace MiCadeteria.Models
         }
 
         [HttpPut("asignar")]
-        public IActionResult AsignarPedido([FromQuery] int idPedido, [FromQuery] int idCadete) //se recibe los id desde la url
+        public IActionResult AsignarPedido([FromQuery] int idPedido, [FromQuery] int idCadete)
         {
-            // Buscamos el pedido en la lista de pedidos
             var pedido = DataStore.Pedidos.FirstOrDefault(p => p.Numero == idPedido);
-
-            // Buscamos el cadete en la lista de cadetes
-            var cadete = DataStore.Cadetes.FirstOrDefault(c => c.Id == idCadete);
-
-            // Si no encontramos pedido o cadete, devolvemos 404
             if (pedido == null)
                 return NotFound($"No se encontró un pedido con número {idPedido}.");
-            if (cadete == null)
-                return NotFound($"No se encontró un cadete con id {idCadete}.");
 
-            // Asignamos el cadete al pedido
+            // No permitir asignar si ya fue entregado
+            if (pedido.Estado == EstadoPedido.Entregado)
+                return BadRequest("No se puede asignar un pedido que ya fue entregado.");
+
+            var cadete = DataStore.Cadetes.FirstOrDefault(c => c.Id == idCadete);
+            if (cadete == null)
+                return NotFound($"No se encontró un cadete con ID {idCadete}.");
+
+            // Asignamos el cadete
             pedido.AsignarCadete(cadete);
 
-            // Retornamos 200 OK con el pedido actualizado en JSON
             return Ok(pedido);
         }
+
+
         [HttpPut("cambiarEstadoPedido")]
         //Validación automática:Si alguien envía un valor que no está en el enum, ASP.NET Core devuelve 400 Bad Request automáticamente.Por ejemplo, /cambiarEstadoPedido?idPedido=3&nuevoEstado=Enviado → sería rechazado, porque Enviado no existe en el enum.Más seguro:Ya no necesitamos string.IsNullOrWhiteSpace porque no se puede enviar un valor inválido.
         public IActionResult CambiarEstadoPedido([FromQuery] int idPedido, [FromQuery] EstadoPedido nuevoEstado)
@@ -112,28 +125,28 @@ namespace MiCadeteria.Models
         [HttpPut("cambiarCadetePedido")]
         public IActionResult CambiarCadetePedido([FromQuery] int idPedido, [FromQuery] int idNuevoCadete)
         {
-            // 1️⃣ Buscamos el pedido por su número
             var pedido = DataStore.Pedidos.FirstOrDefault(p => p.Numero == idPedido);
             if (pedido == null)
-            {
-                // Si no existe, devolvemos 404 Not Found con mensaje
                 return NotFound($"No se encontró un pedido con número {idPedido}.");
-            }
 
-            // 2️⃣ Buscamos el cadete por su ID
+            // No permitir cambiar si ya fue entregado
+            if (pedido.Estado == EstadoPedido.Entregado)
+                return BadRequest("No se puede cambiar el cadete de un pedido ya entregado.");
+
             var cadete = DataStore.Cadetes.FirstOrDefault(c => c.Id == idNuevoCadete);
             if (cadete == null)
-            {
-                // Si no existe, devolvemos 404 Not Found con mensaje
                 return NotFound($"No se encontró un cadete con ID {idNuevoCadete}.");
-            }
 
-            // 3️⃣ Asignamos el nuevo cadete al pedido
+            // No permitir asignar el mismo cadete
+            if (pedido.CadeteAsignado != null && pedido.CadeteAsignado.Id == cadete.Id)
+                return BadRequest("El pedido ya tiene asignado ese cadete.");
+
+            // Asignamos el nuevo cadete
             pedido.AsignarCadete(cadete);
 
-            // 4️⃣ Devolvemos el pedido actualizado con 200 OK
             return Ok(pedido);
         }
+
 
     }
 }
