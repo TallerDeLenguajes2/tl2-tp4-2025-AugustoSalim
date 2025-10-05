@@ -9,10 +9,13 @@ namespace MiCadeteria.Models
         public int Numero { get; set; }                   // Identificador único del pedido
         public string Observaciones { get; set; }         // Observaciones adicionales sobre el pedido
         public Cliente Cliente { get; set; }              // Cliente que solicita el pedido
-        public Cadete CadeteAsignado { get; set; }        // Cadete que entregará el pedido (puede ser null)
+
+        // ⚡ Ahora guardamos solo el Id del cadete asignado para simplificar JSON
+        public int? IdCadete { get; set; }               // Id del cadete que entregará el pedido (puede ser null)
+
         public EstadoPedido Estado { get; set; }          // Estado del pedido usando enum directamente
 
-        // Constructor vacío para Web API
+        // Constructor vacío para Web API y deserialización de JSON
         public Pedido() 
         { 
             Estado = EstadoPedido.Pendiente; // Inicialmente siempre pendiente
@@ -25,7 +28,7 @@ namespace MiCadeteria.Models
             Observaciones = observaciones;
             Cliente = cliente;
             Estado = EstadoPedido.Pendiente; // Por defecto pendiente
-            CadeteAsignado = null;           // Sin cadete asignado al inicio
+            IdCadete = null;                 // Sin cadete asignado al inicio
         }
 
         // Método para cambiar el estado del pedido recibiendo directamente el enum
@@ -37,21 +40,23 @@ namespace MiCadeteria.Models
         }
 
         // Método para asignar un cadete al pedido
-        public void AsignarCadete(Cadete c)
+        public void AsignarCadete(int idCadete)
         {
-            CadeteAsignado = c;
+            // Guardamos solo el Id del cadete
+            IdCadete = idCadete;
         }
 
         // Método para quitar el cadete asignado
         public void QuitarCadete()
         {
-            CadeteAsignado = null;
+            IdCadete = null;
         }
 
         // Método opcional para mostrar información del pedido en consola o logs
         public override string ToString()
         {
-            string cadete = CadeteAsignado != null ? CadeteAsignado.Nombre : "Sin asignar";
+            // Nota: como ahora guardamos solo IdCadete, el nombre del cadete se podría buscar aparte si es necesario
+            string cadete = IdCadete.HasValue ? $"Cadete ID {IdCadete}" : "Sin asignar";
             return $"Pedido #{Numero}, Estado: {Estado}, Cadete: {cadete}, Cliente: {Cliente.Nombre}";
         }
     }

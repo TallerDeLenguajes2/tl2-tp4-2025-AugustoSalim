@@ -8,31 +8,28 @@ namespace MiCadeteria.Models
 {
     public class Cadeteria
     {
-        // Nombre y teléfono de la cadetería
-        public string Nombre { get; set; }
-        public string Telefono { get; set; }
+        public string Nombre { get; set; }  // Nombre de la cadetería
+        public string Telefono { get; set; } // Teléfono de la cadetería
 
-        // Listas públicas de cadetes y pedidos
-        // En la Web API, estas listas pueden ser compartidas con la clase DataStore
+        // Listas de cadetes y pedidos cargadas desde archivos JSON
         public List<Cadete> Cadetes { get; set; } = new List<Cadete>();
         public List<Pedido> Pedidos { get; set; } = new List<Pedido>();
 
         private const decimal ValorPedido = 500m; // Monto fijo por pedido entregado
 
-        // Constructor vacío necesario para Web API
+        // Constructor vacío para deserialización
         public Cadeteria() { }
 
-        // Constructor con parámetros opcional
+        // Constructor opcional
         public Cadeteria(string nombre, string telefono)
         {
             Nombre = nombre;
             Telefono = telefono;
         }
 
-        // Método para agregar un cadete a la cadetería
+        // Agrega un cadete a la lista si no existe uno con el mismo Id
         public void AgregarCadete(Cadete c)
         {
-            // Solo agregamos si no existe un cadete con el mismo Id
             if (!Cadetes.Any(x => x.Id == c.Id))
                 Cadetes.Add(c);
         }
@@ -49,48 +46,46 @@ namespace MiCadeteria.Models
             Pedidos.Add(p);
         }
 
-        // Asignar un cadete a un pedido específico
+        // Asignar un cadete a un pedido
         public bool AsignarCadeteAPedido(int idCadete, int numeroPedido)
         {
             var pedido = Pedidos.FirstOrDefault(x => x.Numero == numeroPedido);
             var cadete = BuscarCadete(idCadete);
 
-            if (pedido == null || cadete == null) return false; // Retorna false si no existe pedido o cadete
+            if (pedido == null || cadete == null) return false;
 
-            pedido.AsignarCadete(cadete);
-            pedido.CambiarEstado(EstadoPedido.Asignado); // Actualiza el estado
-            return true; // Retorna true si se asignó correctamente
+            // ⚡ Ahora guardamos solo el Id del cadete
+            pedido.AsignarCadete(idCadete);
+            pedido.CambiarEstado(EstadoPedido.Asignado);
+
+            return true;
         }
 
         // Calcular el monto a cobrar de un cadete por pedidos entregados
         public decimal JornalACobrar(int idCadete)
         {
-            var cadete = BuscarCadete(idCadete);
-            if (cadete == null) return 0;
-
-            // Contamos los pedidos entregados asignados a este cadete y multiplicamos por el valor
+            // ⚡ Comparamos IdCadete en lugar de objeto Cadete
             return Pedidos
-                   .Where(p => p.CadeteAsignado == cadete && p.Estado == EstadoPedido.Entregado)
+                   .Where(p => p.IdCadete == idCadete && p.Estado == EstadoPedido.Entregado)
                    .Count() * ValorPedido;
         }
 
-        // Generar un informe final de la jornada
+        // Generar informe final de la jornada
         public List<string> InformeFinalJornada()
         {
             List<string> informe = new List<string>();
 
-            // Información por cadete
             foreach (var c in Cadetes)
             {
                 decimal monto = JornalACobrar(c.Id);
-                int cantidad = Pedidos.Count(p => p.CadeteAsignado == c && p.Estado == EstadoPedido.Entregado);
+                int cantidad = Pedidos.Count(p => p.IdCadete == c.Id && p.Estado == EstadoPedido.Entregado);
+
                 informe.Add($"Cadete: {c.Nombre}, Envíos entregados: {cantidad}, Monto ganado: ${monto}");
             }
 
-            // Información global de la jornada
             int totalEnvios = Pedidos.Count(p => p.Estado == EstadoPedido.Entregado);
             decimal totalGanado = Cadetes.Sum(c => JornalACobrar(c.Id));
-            double promedio = Cadetes.Count > 0 ? Cadetes.Average(c => Pedidos.Count(p => p.CadeteAsignado == c && p.Estado == EstadoPedido.Entregado)) : 0;
+            double promedio = Cadetes.Count > 0 ? Cadetes.Average(c => Pedidos.Count(p => p.IdCadete == c.Id && p.Estado == EstadoPedido.Entregado)) : 0;
 
             informe.Add($"\nTotal envíos: {totalEnvios}");
             informe.Add($"Total ganado por todos los cadetes: ${totalGanado}");
