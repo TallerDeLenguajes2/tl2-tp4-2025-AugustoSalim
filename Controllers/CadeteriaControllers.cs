@@ -103,7 +103,7 @@ namespace MiCadeteria.Models
             // Asignamos el cadete
             pedido.AsignarCadete(cadete);
 
-            return Ok(pedido);
+            return Ok(pedido);//
         }
 
 
