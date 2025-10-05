@@ -11,6 +11,7 @@ namespace MiCadeteria.Models
         public Cliente Cliente { get; set; }              // Cliente que solicita el pedido
 
         // ⚡ Ahora guardamos solo el Id del cadete asignado para simplificar JSON
+        // Se usa int? para permitir null (sin cadete asignado)
         public int? IdCadete { get; set; }               // Id del cadete que entregará el pedido (puede ser null)
 
         public EstadoPedido Estado { get; set; }          // Estado del pedido usando enum directamente
@@ -39,7 +40,7 @@ namespace MiCadeteria.Models
             Estado = nuevoEstado;
         }
 
-        // Método para asignar un cadete al pedido
+        // Método para asignar un cadete al pedido (recibe el Id del cadete)
         public void AsignarCadete(int idCadete)
         {
             // Guardamos solo el Id del cadete
@@ -57,7 +58,7 @@ namespace MiCadeteria.Models
         {
             // Nota: como ahora guardamos solo IdCadete, el nombre del cadete se podría buscar aparte si es necesario
             string cadete = IdCadete.HasValue ? $"Cadete ID {IdCadete}" : "Sin asignar";
-            return $"Pedido #{Numero}, Estado: {Estado}, Cadete: {cadete}, Cliente: {Cliente.Nombre}";
+            return $"Pedido #{Numero}, Estado: {Estado}, Cadete: {cadete}, Cliente: {Cliente?.Nombre}";
         }
     }
 }

@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using MiCadeteria.AccesoADatos;
 using MiCadeteria.Models;
 using System.Linq;
+using System.Text.Json;
+using System.IO;
 
 //Herencia de ControllerBase. Esto es obligatorio para un controlador API sin vistas. 
 //Nos da acceso a métodos como Ok(), NotFound(), BadRequest(), etc.
@@ -23,13 +25,10 @@ namespace MiCadeteria.Controllers
         //  🔹 ACCESO A DATOS
         // ============================================================================================
 
-        // Las variables 'readonly' indican que solo se pueden asignar una vez (en el constructor).
-        // Esto asegura que las instancias de acceso a datos no se modifiquen en tiempo de ejecución.
         private readonly AccesoADatosCadeteria accesoCadeteria;
         private readonly AccesoADatosCadetes accesoCadetes;
         private readonly AccesoADatosPedidos accesoPedidos;
 
-        // Objetos principales del sistema cargados desde los archivos JSON.
         private Cadeteria cadeteria;
         private List<Cadete> cadetes;
         private List<Pedido> pedidos;
@@ -38,60 +37,80 @@ namespace MiCadeteria.Controllers
         //  🔹 CONSTRUCTOR
         // ============================================================================================
 
-        // Este constructor se ejecuta automáticamente cuando se crea una instancia del controlador.
-        // Aquí cargamos toda la información desde los archivos JSON usando las clases de acceso a datos.
         public CadeteriaController()
         {
             accesoCadeteria = new AccesoADatosCadeteria();
             accesoCadetes = new AccesoADatosCadetes();
             accesoPedidos = new AccesoADatosPedidos();
 
-            // Cargamos los datos persistidos desde los archivos JSON.
             cadeteria = accesoCadeteria.Obtener();
             cadetes = accesoCadetes.Obtener();
             pedidos = accesoPedidos.Obtener();
+
+            // 🔹 Inicializamos listas si vienen nulas para evitar problemas
+            cadeteria.Cadetes ??= new List<Cadete>();
+            cadeteria.Pedidos ??= new List<Pedido>();
+
+            // 🔹 Sincronizamos cadetes y pedidos cargados desde JSON
+            cadeteria.Cadetes = cadetes;
+            cadeteria.Pedidos = pedidos;
+
+            // 🔹 Guardamos la cadetería inicial en caso de que no exista
+            GuardarCadeteriaJson();
         }
 
         // ============================================================================================
-        //  🔹 ENDPOINTS GET (Obtener información)
+        //  🔹 MÉTODO AUXILIAR: Guardar cadetería en data/cadeteria.json
+        // ============================================================================================
+        private void GuardarCadeteriaJson()
+        {
+            try
+            {
+                string carpeta = Path.Combine("data");
+                if (!Directory.Exists(carpeta))
+                    Directory.CreateDirectory(carpeta);
+
+                string ruta = Path.Combine(carpeta, "cadeteria.json");
+                string json = JsonSerializer.Serialize(cadeteria, new JsonSerializerOptions { WriteIndented = true });
+                System.IO.File.WriteAllText(ruta, json);
+            }
+            catch
+            {
+                // Ignoramos errores de guardado para no romper la API
+            }
+        }
+
+        // ============================================================================================
+        //  🔹 ENDPOINTS GET
         // ============================================================================================
 
-        // Devuelve todos los pedidos en formato JSON
         [HttpGet("pedidos")]
-        public IActionResult GetPedidos()
-        {
-            return Ok(pedidos);
-        }
+        public IActionResult GetPedidos() => Ok(pedidos);
 
-        // Devuelve todos los cadetes disponibles
         [HttpGet("cadetes")]
-        public IActionResult GetCadetes()
-        {
-            return Ok(cadetes);
-        }
+        public IActionResult GetCadetes() => Ok(cadetes);
 
-        // Devuelve la información general de la cadetería
         [HttpGet("informe")]
-        public IActionResult GetInforme()
-        {
-            // A futuro, podríamos generar un informe real con estadísticas, totales, etc.
-            return Ok(cadeteria);
-        }
+        public IActionResult GetInforme() => Ok(cadeteria);
 
         // ============================================================================================
-        //  🔹 ENDPOINT POST (Agregar Cadete)
+        //  🔹 ENDPOINT POST (Agregar cadete)
         // ============================================================================================
+
         [HttpPost("cadetes")]
         public IActionResult AgregarCadete([FromBody] Cadete cadete)
         {
             if (cadete == null) return BadRequest("Cadete nulo");
 
-            // Evita duplicados por Id
             if (cadetes.Any(c => c.Id == cadete.Id))
                 return BadRequest("Ya existe un cadete con ese Id");
 
             cadetes.Add(cadete);
-            accesoCadetes.Guardar(cadetes); // Guardar en JSON
+            cadeteria.Cadetes = cadetes;
+
+            accesoCadetes.Guardar(cadetes);
+            GuardarCadeteriaJson();
+
             return CreatedAtAction(nameof(GetCadetes), new { id = cadete.Id }, cadete);
         }
 
@@ -100,14 +119,11 @@ namespace MiCadeteria.Controllers
         // ============================================================================================
 
         [HttpPost("pedidos")]
-        //[FromBody] indica que los datos se leen desde el cuerpo (body) de la solicitud en formato JSON.
         public IActionResult AgregarPedido([FromBody] Pedido pedido)
         {
-            // Validamos que el pedido tenga cliente y datos válidos.
             if (pedido == null || pedido.Cliente == null)
                 return BadRequest("El pedido o el cliente no pueden ser nulos.");
 
-            // Validamos que no exista un pedido exactamente igual.
             bool existeDuplicado = pedidos.Any(p =>
                 p.Observaciones == pedido.Observaciones &&
                 p.Cliente.Nombre == pedido.Cliente.Nombre &&
@@ -119,17 +135,15 @@ namespace MiCadeteria.Controllers
             if (existeDuplicado)
                 return BadRequest("Ya existe un pedido idéntico.");
 
-            // Generamos un nuevo Id de pedido autoincremental.
             pedido.Numero = pedidos.Count > 0 ? pedidos.Max(p => p.Numero) + 1 : 1;
+            pedido.IdCadete = null;
 
-            // Agregamos el pedido a la lista.
             pedidos.Add(pedido);
+            cadeteria.Pedidos = pedidos;
 
-            // 💾 Guardamos los cambios en el archivo JSON inmediatamente.
             accesoPedidos.Guardar(pedidos);
+            GuardarCadeteriaJson();
 
-            // CreatedAtAction crea una respuesta HTTP 201 (Created),
-            // e incluye la ruta del recurso recién creado.
             return CreatedAtAction(nameof(GetPedidos), new { id = pedido.Numero }, pedido);
         }
 
@@ -138,28 +152,22 @@ namespace MiCadeteria.Controllers
         // ============================================================================================
 
         [HttpPut("asignar")]
-        //[FromQuery] indica que los parámetros vienen por URL, por ejemplo:
-        // /api/cadeteria/asignar?idPedido=3&idCadete=1
         public IActionResult AsignarPedido([FromQuery] int idPedido, [FromQuery] int idCadete)
         {
             var pedido = pedidos.FirstOrDefault(p => p.Numero == idPedido);
-            if (pedido == null)
-                return NotFound($"No se encontró un pedido con ID {idPedido}.");
+            if (pedido == null) return NotFound($"No se encontró un pedido con ID {idPedido}.");
 
-            // No se puede asignar un pedido que ya fue entregado
             if (pedido.Estado == EstadoPedido.Entregado)
                 return BadRequest("No se puede asignar un pedido que ya fue entregado.");
 
             var cadete = cadetes.FirstOrDefault(c => c.Id == idCadete);
-            if (cadete == null)
-                return NotFound($"No se encontró un cadete con ID {idCadete}.");
+            if (cadete == null) return NotFound($"No se encontró un cadete con ID {idCadete}.");
 
-            // Asignamos el cadete
             pedido.IdCadete = cadete.Id;
             pedido.Estado = EstadoPedido.Asignado;
 
-            // Guardamos los cambios en el JSON
             accesoPedidos.Guardar(pedidos);
+            GuardarCadeteriaJson();
 
             return Ok($"Pedido {idPedido} asignado correctamente al cadete {cadete.Nombre}.");
         }
@@ -172,14 +180,12 @@ namespace MiCadeteria.Controllers
         public IActionResult CambiarEstadoPedido([FromQuery] int idPedido, [FromQuery] EstadoPedido nuevoEstado)
         {
             var pedido = pedidos.FirstOrDefault(p => p.Numero == idPedido);
-            if (pedido == null)
-                return NotFound($"No se encontró un pedido con ID {idPedido}.");
+            if (pedido == null) return NotFound($"No se encontró un pedido con ID {idPedido}.");
 
-            // Cambiamos el estado directamente
             pedido.Estado = nuevoEstado;
 
-            // Guardamos los cambios
             accesoPedidos.Guardar(pedidos);
+            GuardarCadeteriaJson();
 
             return Ok(pedido);
         }
@@ -192,26 +198,21 @@ namespace MiCadeteria.Controllers
         public IActionResult CambiarCadetePedido([FromQuery] int idPedido, [FromQuery] int idNuevoCadete)
         {
             var pedido = pedidos.FirstOrDefault(p => p.Numero == idPedido);
-            if (pedido == null)
-                return NotFound($"No se encontró un pedido con ID {idPedido}.");
+            if (pedido == null) return NotFound($"No se encontró un pedido con ID {idPedido}.");
 
-            // No permitir cambiar si ya fue entregado
             if (pedido.Estado == EstadoPedido.Entregado)
                 return BadRequest("No se puede cambiar el cadete de un pedido ya entregado.");
 
             var nuevoCadete = cadetes.FirstOrDefault(c => c.Id == idNuevoCadete);
-            if (nuevoCadete == null)
-                return NotFound($"No se encontró un cadete con ID {idNuevoCadete}.");
+            if (nuevoCadete == null) return NotFound($"No se encontró un cadete con ID {idNuevoCadete}.");
 
-            // No permitir asignar el mismo cadete
             if (pedido.IdCadete == nuevoCadete.Id)
                 return BadRequest("El pedido ya tiene asignado ese cadete.");
 
-            // Asignamos el nuevo cadete
             pedido.IdCadete = nuevoCadete.Id;
 
-            // Guardamos cambios
             accesoPedidos.Guardar(pedidos);
+            GuardarCadeteriaJson();
 
             return Ok($"Pedido {idPedido} reasignado al cadete {nuevoCadete.Nombre}.");
         }

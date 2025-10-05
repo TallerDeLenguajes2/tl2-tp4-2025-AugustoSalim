@@ -1,0 +1,14 @@
+[
+  {
+    "Numero": 1,
+    "Observaciones": "string",
+    "Cliente": {
+      "Nombre": "string",
+      "Direccion": "string",
+      "Telefono": "string",
+      "DatosReferenciaDireccion": "string"
+    },
+    "IdCadete": 0,
+    "Estado": 3
+  }
+]

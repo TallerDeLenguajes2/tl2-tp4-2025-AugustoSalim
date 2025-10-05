@@ -1,0 +1,313 @@
+using Microsoft.AspNetCore.Mvc;
+using MiCadeteria.AccesoADatos;
+using MiCadeteria.Models;
+using System.Linq;
+using System.Collections.Generic; // necesario para List<T>
+
+//Herencia de ControllerBase. Esto es obligatorio para un controlador API sin vistas. 
+//Nos da acceso a métodos como Ok(), NotFound(), BadRequest(), etc.
+
+//[ApiController] Permite que ASP.NET Core valide automáticamente los parámetros, 
+//el binding de JSON y maneje respuestas automáticas de errores.
+
+//[Route("api/[controller]")] Define la ruta base de todos los endpoints dentro de este controlador.
+//[controller] se reemplaza por el nombre de la clase sin "Controller".
+//Ejemplo: CadeteriaController → /api/cadeteria.
+
+namespace MiCadeteria.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class CadeteriaController : ControllerBase
+    {
+        // ============================================================================================
+        //  🔹 ACCESO A DATOS
+        // ============================================================================================
+
+        // Las variables 'readonly' indican que solo se pueden asignar una vez (en el constructor).
+        // Esto asegura que las instancias de acceso a datos no se modifiquen en tiempo de ejecución.
+        private readonly AccesoADatosCadeteria accesoCadeteria;
+        private readonly AccesoADatosCadetes accesoCadetes;
+        private readonly AccesoADatosPedidos accesoPedidos;
+
+        // Objetos principales del sistema cargados desde los archivos JSON.
+        private Cadeteria cadeteria;
+        private List<Cadete> cadetes;
+        private List<Pedido> pedidos;
+
+        // ============================================================================================
+        //  🔹 CONSTRUCTOR
+        // ============================================================================================
+
+        // Este constructor se ejecuta automáticamente cuando se crea una instancia del controlador.
+        // Aquí cargamos toda la información desde los archivos JSON usando las clases de acceso a datos.
+        public CadeteriaController()
+        {
+            accesoCadeteria = new AccesoADatosCadeteria();
+            accesoCadetes = new AccesoADatosCadetes();
+            accesoPedidos = new AccesoADatosPedidos();
+
+            // Cargamos los datos persistidos desde los archivos JSON.
+            cadeteria = accesoCadeteria.Obtener();
+            cadetes = accesoCadetes.Obtener();
+            pedidos = accesoPedidos.Obtener();
+        }
+
+        // ============================================================================================
+        //  🔹 ENDPOINTS GET (Obtener información)
+        // ============================================================================================
+
+        // Devuelve todos los pedidos en formato JSON
+        [HttpGet("pedidos")]
+        public IActionResult GetPedidos()
+        {
+            return Ok(pedidos);
+        }
+
+        // Devuelve todos los cadetes disponibles
+        [HttpGet("cadetes")]
+        public IActionResult GetCadetes()
+        {
+            return Ok(cadetes);
+        }
+
+        // Devuelve la información general de la cadetería
+        [HttpGet("informe")]
+        public IActionResult GetInforme()
+        {
+            // A futuro, podríamos generar un informe real con estadísticas, totales, etc.
+            // Aquí devolvemos el INFORME FINAL DE LA JORNADA, usando la lógica previa adaptada a IdCadete.
+            List<string> informe = new List<string>();
+
+            // Información por cadete
+            foreach (var c in cadetes)
+            {
+                decimal monto = JornalACobrar(c.Id);
+                // Ahora comparamos con IdCadete (int?) en Pedido
+                int cantidad = pedidos.Count(p => p.IdCadete.HasValue && p.IdCadete.Value == c.Id && p.Estado == EstadoPedido.Entregado);
+                informe.Add($"Cadete: {c.Nombre}, Envíos entregados: {cantidad}, Monto ganado: ${monto}");
+            }
+
+            // Información global de la jornada
+            int totalEnvios = pedidos.Count(p => p.Estado == EstadoPedido.Entregado);
+            decimal totalGanado = cadetes.Sum(c => JornalACobrar(c.Id));
+            double promedio = cadetes.Count > 0
+                ? cadetes.Average(c => pedidos.Count(p => p.IdCadete.HasValue && p.IdCadete.Value == c.Id && p.Estado == EstadoPedido.Entregado))
+                : 0;
+
+            informe.Add($"\nTotal envíos: {totalEnvios}");
+            informe.Add($"Total ganado por todos los cadetes: ${totalGanado}");
+            informe.Add($"Promedio de envíos por cadete: {promedio:F2}");
+        /*// =========================================================
+        // 🔹 Actualizar la información de la cadetería
+        // =========================================================
+            cadeteria.Cadetes = cadetes;    // Actualizamos la lista de cadetes actual
+            cadeteria.Pedidos = pedidos;    // Guardamos también los pedidos actuales (si tu clase lo permite)
+            cadeteria. = totalEnvios;
+            cadeteria.TotalGanado = totalGanado;
+            cadeteria.PromedioEnvios = promedio;
+
+            // =========================================================
+            // 💾 Guardar cambios en cadeteria.json
+            // =========================================================
+            accesoCadeteria.Guardar(cadeteria);*/ 
+            return Ok(informe);
+        }
+        // ============================================================================================
+        // 🔹 ENDPOINT GET (Informe de cadetería con cadetes y pedidos asignados)
+        // ============================================================================================
+        [HttpGet("informepedidosycadetes")]
+        public IActionResult GetInformePedidosYCadetes()
+        {
+            // Creamos una versión “transitoria” de la cadetería para el informe
+            var informeCadeteria = new
+            {
+                cadeteria.Nombre,
+                Cadetes = cadetes.Select(c => new
+                {
+                    c.Id,
+                    c.Nombre,
+                    c.Telefono,
+                    // Incluimos solo los pedidos asignados a este cadete
+                    PedidosAsignados = pedidos
+                        .Where(p => p.IdCadete.HasValue && p.IdCadete.Value == c.Id)
+                        .Select(p => new
+                        {
+                            p.Numero,
+                            p.Observaciones,
+                            p.Estado,
+                            Cliente = new
+                            {
+                                p.Cliente.Nombre,
+                                p.Cliente.Direccion,
+                                p.Cliente.Telefono,
+                                p.Cliente.DatosReferenciaDireccion
+                            }
+                        }).ToList()
+                }).ToList(),
+                PedidosSinAsignar = pedidos
+                    .Where(p => !p.IdCadete.HasValue)
+                    .Select(p => new
+                    {
+                        p.Numero,
+                        p.Observaciones,
+                        p.Estado,
+                        Cliente = new
+                        {
+                            p.Cliente.Nombre,
+                            p.Cliente.Direccion,
+                            p.Cliente.Telefono,
+                            p.Cliente.DatosReferenciaDireccion
+                        }
+                    }).ToList()
+            };
+
+            return Ok(informeCadeteria);
+        }
+
+        // ============================================================================================
+        // 🔹 Método auxiliar para calcular el jornal a cobrar de un cadete
+        // ============================================================================================
+        private decimal JornalACobrar(int idCadete)
+        {
+            // Contamos pedidos entregados cuyo IdCadete coincide con idCadete
+            int cantidad = pedidos.Count(p => p.IdCadete.HasValue && p.IdCadete.Value == idCadete && p.Estado == EstadoPedido.Entregado);
+            return cantidad * 500; // Monto fijo por envío entregado
+        }
+
+        // ============================================================================================
+        //  🔹 ENDPOINT POST (Agregar Cadete)
+        // ============================================================================================
+        [HttpPost("cadetes")]
+        public IActionResult AgregarCadete([FromBody] Cadete cadete)
+        {
+            if (cadete == null) return BadRequest("Cadete nulo");
+
+            // Evita duplicados por Id
+            if (cadetes.Any(c => c.Id == cadete.Id))
+                return BadRequest("Ya existe un cadete con ese Id");
+
+            cadetes.Add(cadete);
+            accesoCadetes.Guardar(cadetes); // Guardar en JSON
+            return CreatedAtAction(nameof(GetCadetes), new { id = cadete.Id }, cadete);
+        }
+
+        // ============================================================================================
+        //  🔹 ENDPOINT POST (Agregar pedido)
+        // ============================================================================================
+
+        [HttpPost("pedidos")]
+        //[FromBody] indica que los datos se leen desde el cuerpo (body) de la solicitud en formato JSON.
+        public IActionResult AgregarPedido([FromBody] Pedido pedido)
+        {
+            // Validamos que el pedido tenga cliente y datos válidos.
+            if (pedido == null || pedido.Cliente == null)
+                return BadRequest("El pedido o el cliente no pueden ser nulos.");
+
+            // Validamos que no exista un pedido exactamente igual.
+            bool existeDuplicado = pedidos.Any(p =>
+                p.Observaciones == pedido.Observaciones &&
+                p.Cliente.Nombre == pedido.Cliente.Nombre &&
+                p.Cliente.Direccion == pedido.Cliente.Direccion &&
+                p.Cliente.Telefono == pedido.Cliente.Telefono &&
+                p.Cliente.DatosReferenciaDireccion == pedido.Cliente.DatosReferenciaDireccion
+            );
+
+            if (existeDuplicado)
+                return BadRequest("Ya existe un pedido idéntico.");
+
+            // Generamos un nuevo Id de pedido autoincremental.
+            pedido.Numero = pedidos.Count > 0 ? pedidos.Max(p => p.Numero) + 1 : 1;
+
+            // Agregamos el pedido a la lista.
+            pedidos.Add(pedido);
+
+            // 💾 Guardamos los cambios en el archivo JSON inmediatamente.
+            accesoPedidos.Guardar(pedidos);
+
+            // CreatedAtAction crea una respuesta HTTP 201 (Created),
+            // e incluye la ruta del recurso recién creado.
+            return CreatedAtAction(nameof(GetPedidos), new { id = pedido.Numero }, pedido);
+        }
+
+        // ============================================================================================
+        //  🔹 ENDPOINT PUT (Asignar pedido a cadete)
+        // ============================================================================================
+        [HttpPut("asignar")]
+        //[FromQuery] indica que los parámetros vienen por URL, por ejemplo:
+        // /api/cadeteria/asignar?idPedido=3&idCadete=1
+        public IActionResult AsignarPedido([FromQuery] int idPedido, [FromQuery] int idCadete)
+        {
+            var pedido = pedidos.FirstOrDefault(p => p.Numero == idPedido);
+            if (pedido == null)
+                return NotFound($"No se encontró un pedido con ID {idPedido}.");
+
+            // No se puede asignar un pedido que ya fue entregado
+            if (pedido.Estado == EstadoPedido.Entregado)
+                return BadRequest("No se puede asignar un pedido que ya fue entregado.");
+
+            var cadete = cadetes.FirstOrDefault(c => c.Id == idCadete);
+            if (cadete == null)
+                return NotFound($"No se encontró un cadete con ID {idCadete}.");
+
+            // Asignamos el cadete (usando el método de Pedido que recibe el Id)
+            pedido.AsignarCadete(cadete.Id);
+            pedido.Estado = EstadoPedido.Asignado;
+
+            // Guardamos los cambios en el JSON
+            accesoPedidos.Guardar(pedidos);
+
+            return Ok($"Pedido {idPedido} asignado correctamente al cadete {cadete.Nombre}.");
+        }
+
+        // ============================================================================================
+        //  🔹 ENDPOINT PUT (Cambiar estado del pedido)
+        // ============================================================================================
+        [HttpPut("cambiarEstadoPedido")]
+        public IActionResult CambiarEstadoPedido([FromQuery] int idPedido, [FromQuery] EstadoPedido nuevoEstado)
+        {
+            var pedido = pedidos.FirstOrDefault(p => p.Numero == idPedido);
+            if (pedido == null)
+                return NotFound($"No se encontró un pedido con ID {idPedido}.");
+
+            // Cambiamos el estado directamente
+            pedido.Estado = nuevoEstado;
+
+            // Guardamos los cambios
+            accesoPedidos.Guardar(pedidos);
+
+            return Ok(pedido);
+        }
+
+        // ============================================================================================
+        //  🔹 ENDPOINT PUT (Cambiar cadete asignado)
+        // ============================================================================================
+        [HttpPut("cambiarCadetePedido")]
+        public IActionResult CambiarCadetePedido([FromQuery] int idPedido, [FromQuery] int idNuevoCadete)
+        {
+            var pedido = pedidos.FirstOrDefault(p => p.Numero == idPedido);
+            if (pedido == null)
+                return NotFound($"No se encontró un pedido con ID {idPedido}.");
+
+            // No permitir cambiar si ya fue entregado
+            if (pedido.Estado == EstadoPedido.Entregado)
+                return BadRequest("No se puede cambiar el cadete de un pedido ya entregado.");
+
+            var nuevoCadete = cadetes.FirstOrDefault(c => c.Id == idNuevoCadete);
+            if (nuevoCadete == null)
+                return NotFound($"No se encontró un cadete con ID {idNuevoCadete}.");
+
+            // No permitir asignar el mismo cadete
+            if (pedido.IdCadete == nuevoCadete.Id)
+                return BadRequest("El pedido ya tiene asignado ese cadete.");
+
+            // Asignamos el nuevo cadete usando el método de Pedido
+            pedido.AsignarCadete(nuevoCadete.Id);
+
+            // Guardamos cambios
+            accesoPedidos.Guardar(pedidos);
+
+            return Ok($"Pedido {idPedido} reasignado al cadete {nuevoCadete.Nombre}.");
+        }
+    }
+}
