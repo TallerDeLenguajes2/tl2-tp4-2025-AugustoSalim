@@ -35,5 +35,22 @@ namespace MiCadeteria.AccesoADatos
             // Si por algún motivo el proceso falla, devolvemos una lista vacía como respaldo.
             return JsonSerializer.Deserialize<List<Cadete>>(json, opciones) ?? new List<Cadete>();
         }
+
+        // ✅ Método que guarda (escribe) todos los cadetes en el archivo JSON
+        public void Guardar(List<Cadete> cadetes)
+        {
+            // Opciones para que el JSON quede "bonito", con indentación
+            var opciones = new JsonSerializerOptions { WriteIndented = true };
+
+            // Convertimos la lista de pedidos a formato JSON (texto)
+            string json = JsonSerializer.Serialize(cadetes, opciones);
+
+            // Nos aseguramos de que la carpeta 'Data' exista antes de escribir
+            Directory.CreateDirectory("Data");
+
+            // Sobrescribimos (o creamos) el archivo Pedidos.json con el nuevo contenido
+            File.WriteAllText(rutaArchivo, json);
+        }
+
     }
 }

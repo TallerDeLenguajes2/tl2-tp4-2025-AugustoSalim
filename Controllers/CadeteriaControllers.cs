@@ -79,6 +79,23 @@ namespace MiCadeteria.Controllers
         }
 
         // ============================================================================================
+        //  🔹 ENDPOINT POST (Agregar Cadete)
+        // ============================================================================================
+        [HttpPost("cadetes")]
+        public IActionResult AgregarCadete([FromBody] Cadete cadete)
+        {
+            if (cadete == null) return BadRequest("Cadete nulo");
+
+            // Evita duplicados por Id
+            if (cadetes.Any(c => c.Id == cadete.Id))
+                return BadRequest("Ya existe un cadete con ese Id");
+
+            cadetes.Add(cadete);
+            accesoCadetes.Guardar(cadetes); // Guardar en JSON
+            return CreatedAtAction(nameof(GetCadetes), new { id = cadete.Id }, cadete);
+        }
+
+        // ============================================================================================
         //  🔹 ENDPOINT POST (Agregar pedido)
         // ============================================================================================
 
