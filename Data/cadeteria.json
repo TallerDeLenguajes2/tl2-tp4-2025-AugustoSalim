@@ -1,0 +1,32 @@
+{
+  "Nombre": "Cadeter\u00EDa Sin Datos",
+  "Telefono": "000-0000",
+  "Cadetes": [
+    {
+      "Id": 0,
+      "Nombre": "Juan",
+      "Direccion": "Perez",
+      "Telefono": "1234"
+    },
+    {
+      "Id": 1,
+      "Nombre": "perez",
+      "Direccion": "string",
+      "Telefono": "string"
+    }
+  ],
+  "Pedidos": [
+    {
+      "Numero": 1,
+      "Observaciones": "string",
+      "Cliente": {
+        "Nombre": "string",
+        "Direccion": "string",
+        "Telefono": "string",
+        "DatosReferenciaDireccion": "string"
+      },
+      "IdCadete": 0,
+      "Estado": 3
+    }
+  ]
+}

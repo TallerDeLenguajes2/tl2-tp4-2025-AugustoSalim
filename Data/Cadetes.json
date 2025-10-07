@@ -4,5 +4,11 @@
     "Nombre": "Juan",
     "Direccion": "Perez",
     "Telefono": "1234"
+  },
+  {
+    "Id": 1,
+    "Nombre": "perez",
+    "Direccion": "string",
+    "Telefono": "string"
   }
 ]

@@ -25,10 +25,13 @@ namespace MiCadeteria.Controllers
         //  🔹 ACCESO A DATOS
         // ============================================================================================
 
+        // Las variables 'readonly' indican que solo se pueden asignar una vez (en el constructor).
+        // Esto asegura que las instancias de acceso a datos no se modifiquen en tiempo de ejecución.
         private readonly AccesoADatosCadeteria accesoCadeteria;
         private readonly AccesoADatosCadetes accesoCadetes;
         private readonly AccesoADatosPedidos accesoPedidos;
 
+        // Objetos principales del sistema cargados desde los archivos JSON.
         private Cadeteria cadeteria;
         private List<Cadete> cadetes;
         private List<Pedido> pedidos;

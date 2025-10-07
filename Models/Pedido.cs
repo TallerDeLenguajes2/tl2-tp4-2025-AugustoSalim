@@ -12,7 +12,7 @@ namespace MiCadeteria.Models
 
         // ⚡ Ahora guardamos solo el Id del cadete asignado para simplificar JSON
         // Se usa int? para permitir null (sin cadete asignado)
-        public int? IdCadete { get; set; }               // Id del cadete que entregará el pedido (puede ser null)
+        public int? IdCadete { get; set; }               // Id del cadete que entregará eldo (puede ser null) pedi
 
         public EstadoPedido Estado { get; set; }          // Estado del pedido usando enum directamente
 
